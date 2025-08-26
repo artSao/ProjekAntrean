@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(CUSTOMER)
+  lastLogin DateTime?
+  isActive  Boolean  @default(true)
+
+  branchId Int?
+  branch   Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull) // Jika cabang dihapus, set null
+
+  mechanic       Mechanic?
+  bookings       Booking[]
+  passwordResets PasswordReset[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PasswordReset {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique // Ini akan menjadi token yang di-hash
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade) // Jika user dihapus, token reset ikut terhapus
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  used      Boolean  @default(false)
+}
+
+model Branch {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  address   String
+  openTime  String // Format "HH:mm"
+  closeTime String // Format "HH:mm"
+
+  users     User[]
+  mechanics Mechanic[]
+  bookings  Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Mechanic {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @unique
+  branchId       Int
+  specialization String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade) // Jika user dihapus, profil mekanik ikut terhapus
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict) // Jangan hapus cabang jika masih ada mekanik
+
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Booking {
+  id            Int           @id @default(autoincrement())
+  userId        Int
+  branchId      Int
+  mechanicId    Int?
+  queueNumber   Int?
+  serviceType   String?
+  scheduledTime DateTime
+  bookingDate   DateTime      @db.Date // Hanya menyimpan tanggal, tanpa waktu
+  status        BookingStatus @default(PENDING)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade) // Jika user dihapus, booking ikut terhapus
+  branch   Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade) // Jika cabang dihapus, booking ikut terhapus
+  mechanic Mechanic?  @relation(fields: [mechanicId], references: [id], onDelete: SetNull) // Jika mekanik dihapus, set null
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([branchId, bookingDate])
+}
+
+enum Role {
+  CUSTOMER
+  MECHANIC
+  BRANCH_ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
