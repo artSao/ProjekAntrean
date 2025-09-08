@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireAuth } from "@/lib/middleware";
+import { requireAuth } from "@/lib/auth";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  // cek auth & role
-  const auth = requireAuth(req, { roles: ["ADMIN", "BRANCH_ADMIN"], branchId: params.id });
-  if (auth instanceof NextResponse) return auth; // kalau unauthorized/forbidden
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const auth = requireAuth(req, {
+    roles: ["ADMIN", "BRANCH_ADMIN"],
+    branchId: params.id,
+  });
+  if (auth instanceof NextResponse) return auth;
 
   try {
     const mechanics = await prisma.user.findMany({
