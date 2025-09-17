@@ -1,17 +1,31 @@
 // app/api/branches/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/middleware";
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 export async function GET(
-  request: NextRequest,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
-  const auth = requireAuth(request, {
-    roles: ["BRANCH_ADMIN"],
-    branchId: params.id,
-  });
-  if (auth instanceof NextResponse) return auth; // kalau gagal auth
+  try {
+    const branchId = parseInt(params.id, 10);
+    if (isNaN(branchId)) {
+      return NextResponse.json({ error: "Invalid branch id" }, { status: 400 });
+    }
 
-  // kalau lolos
-  return NextResponse.json({ message: `Halo admin cabang ${params.id}` });
+    const branch = await prisma.branch.findUnique({
+      where: { id: branchId },
+      include: { mechanics: true },
+    });
+
+    if (!branch) {
+      return NextResponse.json({ error: "Branch not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(branch);
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
 }
